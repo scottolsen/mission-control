@@ -32,13 +32,26 @@ pub struct SystemRunner;
 
 impl Runner for SystemRunner {
     fn run(&self, args: &[String]) -> std::io::Result<Output> {
-        let out = output_with_deadline(Command::new("tmux").args(args), DEADLINE)?;
+        let mut cmd = Command::new("tmux");
+        cmd.args(args);
+        if needs_utf8_locale(|k| std::env::var_os(k).is_some()) {
+            cmd.env("LC_CTYPE", "UTF-8");
+        }
+        let out = output_with_deadline(&mut cmd, DEADLINE)?;
         Ok(Output {
             ok: out.status.success(),
             stdout: String::from_utf8_lossy(&out.stdout).into_owned(),
             stderr: String::from_utf8_lossy(&out.stderr).into_owned(),
         })
     }
+}
+
+/// An app launched from Finder or the Dock has no locale at all, and tmux in
+/// the C locale prints every tab in a `-F` format as `_` and every `❯` as
+/// `_`: no pane row would parse and no menu would be found. Only filled in
+/// when the user has set none of the variables, so a real locale wins.
+pub fn needs_utf8_locale(is_set: impl Fn(&str) -> bool) -> bool {
+    !["LC_ALL", "LC_CTYPE", "LANG"].iter().any(|k| is_set(k))
 }
 
 /// `Command::output` with a deadline: past it the child is killed and the
@@ -199,7 +212,13 @@ pub fn list_panes(r: &dyn Runner) -> Result<Option<Vec<Pane>>, String> {
         .run(&list_panes_args())
         .map_err(|e| format!("tmux: {e}"))?;
     if out.ok {
-        return Ok(Some(parse_panes(&out.stdout)));
+        let panes = parse_panes(&out.stdout);
+        // Rows that all fail to parse mean tmux printed something we can't
+        // read; showing every session as "outside tmux" would hide that.
+        if panes.is_empty() && !out.stdout.trim().is_empty() {
+            return Err("tmux list-panes printed rows that didn't parse".into());
+        }
+        return Ok(Some(panes));
     }
     if is_no_server(&out.stderr) {
         return Ok(None);
@@ -420,6 +439,31 @@ weird\t@9\t3\tw\t%90\t0\t1\t2.1.300\t80\t24\t0\t/tmp/bare\ttitle\twith\ttabs";
     #[test]
     fn malformed_lines_are_skipped() {
         assert!(parse_panes("only\tthree\tfields\n\n").is_empty());
+    }
+
+    #[test]
+    fn utf8_locale_only_fills_a_missing_locale() {
+        assert!(needs_utf8_locale(|_| false));
+        assert!(!needs_utf8_locale(|k| k == "LANG"));
+        assert!(!needs_utf8_locale(|k| k == "LC_ALL"));
+        assert!(!needs_utf8_locale(|k| k == "LC_CTYPE"));
+    }
+
+    #[test]
+    fn unparseable_rows_are_an_error() {
+        // What tmux prints in the C locale: tabs come out as underscores.
+        let r = FakeRunner {
+            replies: vec![(
+                "list-panes",
+                true,
+                "big-ring-labs_@5_1_vim_%13_0_5522_vim_437_39_0_/tmp_vim\n".into(),
+                String::new(),
+            )],
+            ..Default::default()
+        };
+        assert!(list_panes(&r).unwrap_err().contains("didn't parse"));
+        let r = FakeRunner::default();
+        assert_eq!(list_panes(&r), Ok(Some(vec![])));
     }
 
     #[test]

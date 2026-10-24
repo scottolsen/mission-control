@@ -14,7 +14,7 @@ commands and the event below. Both sides must match this file exactly. JSON keys
 | `~/.claude/projects/*/<sessionId>.jsonl` | Transcript. Read only the **tail** (last ~512 KB, seek; drop the first line only when the window starts mid-line). When the newest line alone is longer than the window, double it (up to 8 MB); past that, keep the previous extract. Cache the resolved path per sessionId. |
 | `git -C <cwd> branch --show-current` | Branch, cached per cwd for 30 s, looked up on a background thread (never under the poll lock); a new cwd's branch appears a poll later. |
 
-Every child process (tmux, git, osascript) runs with a 3 s deadline and is killed past it; a tmux timeout surfaces as `Snapshot.error`.
+Every child process (tmux, git, osascript) runs with a 3 s deadline and is killed past it; a tmux timeout surfaces as `Snapshot.error`. tmux runs with `LC_CTYPE=UTF-8` when none of `LC_ALL`, `LC_CTYPE`, `LANG` is set (a Dock-launched app has no locale, and tmux in the C locale prints the format's tabs and `❯` as `_`). A `list-panes` that succeeds with output but parses to no rows is a `Snapshot.error`, not "no panes".
 
 ### Transcript rules
 - Only `type` in `user`, `assistant`, `last-prompt`, `ai-title` matter. Everything else is skipped. `last-prompt.lastPrompt` only fills `lastPrompt` (with `lastPromptAt: null`) when no human prompt is in the tail.
