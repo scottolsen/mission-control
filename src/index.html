@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="dark light" />
+  <title>Mission Control</title>
+  <link rel="stylesheet" href="vendor/xterm.css" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header id="topbar" data-tauri-drag-region>
+    <div class="brand" data-tauri-drag-region>
+      <span class="brand-mark" aria-hidden="true" data-tauri-drag-region></span>
+      <span class="wordmark" data-tauri-drag-region>MISSION<b data-tauri-drag-region>CONTROL</b></span>
+    </div>
+
+    <nav id="chips" class="chips" aria-label="Filter by state"></nav>
+
+    <div class="topbar-spacer" data-tauri-drag-region></div>
+
+    <label class="search" for="search">
+      <span class="search-icon" data-icon="search"></span>
+      <input id="search" type="search" placeholder="Search sessions" spellcheck="false" autocomplete="off"
+             aria-label="Search sessions" />
+      <kbd class="search-kbd" aria-hidden="true">/</kbd>
+    </label>
+
+    <div class="segmented" role="radiogroup" aria-label="Group sessions">
+      <button id="group-status" type="button" role="radio" aria-checked="true" title="Group by status (g)">
+        <span data-icon="status"></span>Status
+      </button>
+      <button id="group-tmux" type="button" role="radio" aria-checked="false" title="Group by tmux session (g)">
+        <span data-icon="layers"></span>tmux
+      </button>
+    </div>
+
+    <button id="btn-settings" class="icon-btn" type="button" title="Settings (⌘,)" aria-label="Settings" aria-haspopup="dialog">
+      <span data-icon="gear"></span>
+    </button>
+  </header>
+
+  <div id="banner" class="banner" role="alert" hidden>
+    <span data-icon="alert"></span>
+    <span id="banner-text" class="banner-text"></span>
+    <button id="banner-retry" class="link-btn" type="button">Refresh</button>
+  </div>
+
+  <div id="layout">
+    <aside id="list-pane" aria-label="Sessions">
+      <div id="list" class="list" role="listbox" aria-label="Claude sessions" tabindex="-1"></div>
+      <div id="list-empty" class="empty" hidden></div>
+    </aside>
+
+    <div id="split" role="separator" aria-orientation="vertical" aria-label="Resize session list"
+         title="Drag to resize · double-click to reset"></div>
+
+    <main id="detail" aria-live="off">
+      <div id="detail-empty" class="empty detail-empty"></div>
+
+      <div id="detail-body" class="detail-body" hidden>
+        <section class="d-head">
+          <div class="d-head-main">
+            <div id="d-state" class="pill"></div>
+            <h1 id="d-title" class="d-title"></h1>
+            <ol id="d-crumbs" class="crumbs" aria-label="Location"></ol>
+          </div>
+          <button id="btn-jump" class="btn btn-primary" type="button" title="Switch tmux to this pane (Enter)">
+            <span data-icon="jump"></span>Jump to pane<kbd>⏎</kbd>
+          </button>
+        </section>
+
+        <dl id="d-meta" class="meta"></dl>
+
+        <section id="d-action" class="action" aria-label="Respond"></section>
+
+        <section id="d-convo" class="convo" aria-label="Latest exchange">
+          <article class="bubble bubble-you">
+            <header class="bubble-head">
+              <span class="who"><span data-icon="user"></span>You</span>
+              <time id="d-prompt-at" class="when"></time>
+            </header>
+            <p id="d-prompt" class="bubble-text"></p>
+          </article>
+          <article class="bubble bubble-claude">
+            <header class="bubble-head">
+              <span class="who"><span data-icon="spark"></span>Claude</span>
+              <time id="d-reply-at" class="when"></time>
+            </header>
+            <p id="d-reply" class="bubble-text"></p>
+          </article>
+        </section>
+
+        <section id="preview" class="preview" aria-label="Pane preview">
+          <header class="preview-head">
+            <span class="preview-title"><span data-icon="terminal"></span>Pane preview</span>
+            <span id="preview-live" class="live" title="Refreshing every second while this window is visible">Live</span>
+            <span id="preview-dims" class="preview-dims"></span>
+            <button id="preview-fit" class="icon-btn icon-btn-sm" type="button" aria-pressed="false"
+                    title="Fit the whole pane width" aria-label="Fit the whole pane width"><span data-icon="expand"></span></button>
+          </header>
+          <div id="preview-viewport" class="preview-viewport">
+            <div id="preview-stage" class="preview-stage"></div>
+          </div>
+          <p id="preview-note" class="preview-note" hidden></p>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <footer id="footer">
+    <ul class="hints" aria-label="Keyboard shortcuts">
+      <li><kbd>↑</kbd><kbd>↓</kbd> Move</li>
+      <li><kbd>⏎</kbd> Jump</li>
+      <li><kbd>/</kbd> Search</li>
+      <li><kbd>g</kbd> Group</li>
+      <li><kbd>r</kbd> Reply</li>
+      <li><kbd>1</kbd>–<kbd>9</kbd> Choose</li>
+      <li><kbd>⌘</kbd><kbd>,</kbd> Settings</li>
+    </ul>
+    <button id="btn-refresh" class="sync" type="button" title="Refresh now (⌘R)">
+      <span data-icon="refresh"></span><span id="sync-text">Connecting…</span>
+    </button>
+  </footer>
+
+  <div id="settings" class="sheet-overlay" hidden>
+    <form id="settings-form" class="sheet" role="dialog" aria-modal="true" aria-labelledby="settings-title" novalidate>
+      <header class="sheet-head">
+        <h2 id="settings-title">Settings</h2>
+      </header>
+      <div class="sheet-body">
+        <fieldset class="group">
+          <legend>Notifications</legend>
+          <label class="switch-row">
+            <span class="switch-text">
+              <span class="switch-label">When Claude finishes a turn</span>
+              <span class="help">Notifies when a working session hands control back to you.</span>
+            </span>
+            <input id="s-notify-your-turn" type="checkbox" class="switch" />
+          </label>
+          <label class="switch-row">
+            <span class="switch-text">
+              <span class="switch-label">When a session needs input</span>
+              <span class="help">Off by default: your Claude Code Notification hook already alerts on permission prompts.</span>
+            </span>
+            <input id="s-notify-needs-input" type="checkbox" class="switch" />
+          </label>
+        </fieldset>
+
+        <fieldset class="group">
+          <legend>General</legend>
+          <div class="field">
+            <label for="s-hotkey">Show/hide shortcut</label>
+            <div class="field-control">
+              <input id="s-hotkey" type="text" class="input mono" spellcheck="false" autocomplete="off" />
+              <p class="help">Global shortcut, e.g. <code>Ctrl+Alt+M</code> or <code>Cmd+Shift+Space</code>.</p>
+              <p id="err-hotkey" class="field-error" data-error-for="hotkey" hidden></p>
+            </div>
+          </div>
+          <div class="field">
+            <label for="s-stale">Mark stale after</label>
+            <div class="field-control">
+              <div class="input-suffix">
+                <input id="s-stale" type="number" min="1" max="720" step="1" class="input mono" />
+                <span>hours</span>
+              </div>
+              <p class="help">Waiting sessions with no activity for this long are dimmed and sorted last.</p>
+              <p id="err-staleHours" class="field-error" data-error-for="staleHours" hidden></p>
+            </div>
+          </div>
+          <div class="field">
+            <label for="s-terminal">Terminal app</label>
+            <div class="field-control">
+              <input id="s-terminal" type="text" class="input" spellcheck="false" autocomplete="off" />
+              <p class="help">Brought to the front after a jump.</p>
+              <p id="err-terminalApp" class="field-error" data-error-for="terminalApp" hidden></p>
+            </div>
+          </div>
+        </fieldset>
+        <p id="settings-error" class="form-error" role="alert" hidden></p>
+      </div>
+      <footer class="sheet-foot">
+        <button id="settings-cancel" class="btn" type="button">Cancel</button>
+        <button id="settings-save" class="btn btn-primary" type="submit">Save</button>
+      </footer>
+    </form>
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+  <script src="vendor/xterm.js"></script>
+  <script type="module" src="main.js"></script>
+</body>
+</html>

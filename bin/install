@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+#
+# bin/install — add a `mission-control` shell function to ~/.zshrc.
+#
+# The function launches the release build produced by bin/build, so you can
+# start Mission Control from any directory by just typing `mission-control`. Safe to run more than
+# once: if a `mission-control` function is already defined in ~/.zshrc, this does nothing.
+
+set -euo pipefail
+
+if [ -t 1 ]; then
+  BLUE=$'\033[1;34m'; GREEN=$'\033[1;32m'; YELLOW=$'\033[1;33m'; RESET=$'\033[0m'
+else
+  BLUE=''; GREEN=''; YELLOW=''; RESET=''
+fi
+info() { printf '%s==>%s %s\n' "$BLUE" "$RESET" "$*"; }
+ok()   { printf '%s ✓%s  %s\n' "$GREEN" "$RESET" "$*"; }
+warn() { printf '%s !%s  %s\n' "$YELLOW" "$RESET" "$*"; }
+
+REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+APP="$REPO_ROOT/src-tauri/target/release/bundle/macos/MissionControl.app"
+ZSHRC="${ZDOTDIR:-$HOME}/.zshrc"
+
+# --------------------------------------------------------------------------
+# Skip if a `mission-control` function is already present.
+# --------------------------------------------------------------------------
+# Match a function definition (`mission-control()` or `function mission-control`) so a stray
+# mention in a comment or PATH doesn't count as "already installed".
+if [ -f "$ZSHRC" ] && grep -Eq '^[[:space:]]*(function[[:space:]]+mission-control\b|mission-control[[:space:]]*\(\))' "$ZSHRC"; then
+  ok "mission-control function already present in $ZSHRC — nothing to do."
+  exit 0
+fi
+
+# --------------------------------------------------------------------------
+# Append the function.
+# --------------------------------------------------------------------------
+info "Adding the mission-control function to ${ZSHRC}…"
+
+[ -f "$ZSHRC" ] || touch "$ZSHRC"
+
+cat >> "$ZSHRC" <<EOF
+
+# >>> mission-control >>>
+# Launch the Mission Control release build. Rebuild it with bin/build in the repo below.
+mission-control() {
+  local app="$APP"
+  if [[ ! -d "\$app" ]]; then
+    echo "Mission Control isn't built yet — run bin/build in $REPO_ROOT" >&2
+    return 1
+  fi
+  open "\$app"
+}
+# <<< mission-control <<<
+EOF
+
+ok "Added the mission-control function to $ZSHRC"
+if [ ! -d "$APP" ]; then
+  warn "No release build found yet — run ${GREEN}bin/build${RESET} to create it."
+fi
+info "Open a new terminal (or run 'source $ZSHRC'), then type: ${GREEN}mission-control${RESET}"

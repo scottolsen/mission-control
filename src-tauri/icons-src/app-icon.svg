@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1B2230"/>
+      <stop offset="1" stop-color="#0B0F16"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#F5A524" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#F5A524" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="sweep" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#7DD3FC" stop-opacity="0"/>
+      <stop offset="1" stop-color="#7DD3FC" stop-opacity="0.28"/>
+    </linearGradient>
+  </defs>
+  <rect x="80" y="80" width="864" height="864" rx="196" fill="url(#bg)"/>
+  <rect x="81" y="81" width="862" height="862" rx="195" fill="none" stroke="#FFFFFF" stroke-opacity="0.08" stroke-width="2"/>
+  <g transform="translate(512 512)" fill="none" stroke="#C9D4E5">
+    <circle r="300" stroke-opacity="0.22" stroke-width="6"/>
+    <circle r="205" stroke-opacity="0.38" stroke-width="6"/>
+    <circle r="110" stroke-opacity="0.6" stroke-width="6"/>
+    <line x1="-330" y1="0" x2="330" y2="0" stroke-opacity="0.12" stroke-width="4"/>
+    <line x1="0" y1="-330" x2="0" y2="330" stroke-opacity="0.12" stroke-width="4"/>
+    <path d="M0 0 L300 0 A300 300 0 0 0 212 -212 Z" fill="url(#sweep)" stroke="none"/>
+  </g>
+  <g fill="#E6EDF7">
+    <circle cx="352" cy="372" r="22" fill-opacity="0.85"/>
+    <circle cx="660" cy="690" r="18" fill-opacity="0.7"/>
+    <circle cx="420" cy="676" r="14" fill-opacity="0.55"/>
+    <circle cx="512" cy="512" r="20"/>
+  </g>
+  <circle cx="657" cy="363" r="80" fill="url(#glow)"/>
+  <circle cx="657" cy="363" r="30" fill="#F5A524"/>
+</svg>

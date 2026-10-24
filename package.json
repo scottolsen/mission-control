@@ -1,0 +1,17 @@
+{
+  "name": "mission-control",
+  "version": "0.1.0",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "description": "Vendored front-end dependencies for Mission Control's Tauri UI.",
+  "scripts": {
+    "vendor": "node bin/vendor-xterm.mjs",
+    "test": "node --test"
+  },
+  "devDependencies": {
+    "@xterm/addon-fit": "0.10.0",
+    "@xterm/addon-webgl": "0.18.0",
+    "@xterm/xterm": "5.5.0"
+  }
+}

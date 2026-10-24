@@ -1,0 +1,21 @@
+[package]
+name = "mission-control"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "One board for every Claude Code session running across your tmux sessions"
+
+[lib]
+name = "mission_control_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon", "image-png"] }
+tauri-plugin-global-shortcut = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+regex = "1"
+libc = "0.2"

@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+#
+# bin/build — produce a release build of Mission Control.
+#
+# Thin wrapper around `cargo tauri build`, run through the mise-pinned Rust
+# toolchain (the same way bin/run wraps `cargo tauri dev`). Any extra arguments
+# are passed through. Run bin/setup first if the toolchain isn't installed yet.
+#
+# On macOS this leaves a ready-to-run bundle at:
+#   src-tauri/target/release/bundle/macos/MissionControl.app
+# and a disk image alongside it under bundle/dmg/. Run bin/install once to add a
+# `mission-control` shell function that launches the app from anywhere.
+
+set -euo pipefail
+
+REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+
+if ! command -v mise >/dev/null 2>&1; then
+  echo "mise not found — run bin/setup first." >&2
+  exit 1
+fi
+
+cd "$REPO_ROOT"
+
+if ! mise exec -- cargo tauri --version >/dev/null 2>&1; then
+  echo "The Tauri CLI isn't installed — run bin/setup first." >&2
+  exit 1
+fi
+
+mise exec -- cargo tauri build "$@"
+
+# Point at the freshly built bundle if it's where we expect (macOS). This is
+# best-effort reporting — never fail the build just because the path moved.
+APP="$REPO_ROOT/src-tauri/target/release/bundle/macos/MissionControl.app"
+if [ -d "$APP" ]; then
+  printf '\n✓  Built %s\n' "$APP"
+  printf '   Launch it with the mission-control function (run bin/install to add it), or: open "%s"\n' "$APP"
+fi
