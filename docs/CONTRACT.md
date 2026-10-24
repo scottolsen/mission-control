@@ -8,7 +8,7 @@ commands and the event below. Both sides must match this file exactly. JSON keys
 
 | Source | What it gives |
 |---|---|
-| `~/.claude/sessions/<pid>.json` | Every live Claude Code process: `pid`, `sessionId`, `cwd`, `tmux` (`"<session>:@<win>.%<pane>"`, absent outside tmux), `status` (`busy` / `idle` / `waiting`, treat anything else as unknown), `statusUpdatedAt`, `startedAt`, `version`, `name`, `kind`. Skip files whose `pid` is dead (`kill(pid, 0)` fails with ESRCH), or whose process name (`proc_name`) is readable and isn't Claude's (`^\d+\.\d+\.\d+$` or `claude`; a reused pid). Ignore `*.key` files. |
+| `~/.claude/sessions/<pid>.json` | Every live Claude Code process: `pid`, `sessionId`, `cwd`, `tmux` (`"<session>:@<win>.%<pane>"`, absent outside tmux), `status` (`busy` / `idle` / `waiting`, treat anything else as unknown), `statusUpdatedAt`, `startedAt`, `version`, `name`, `kind`, `bridgeSessionId` (present while the session is connected to Remote Control, `/rc`). Skip files whose `pid` is dead (`kill(pid, 0)` fails with ESRCH), or whose process name (`proc_name`) is readable and isn't Claude's (`^\d+\.\d+\.\d+$` or `claude`; a reused pid). Ignore `*.key` files. |
 | `tmux list-panes -a -F …` (tab separated) | `session_name`, `window_id`, `window_index`, `window_name`, `pane_id`, `pane_index`, `pane_pid`, `pane_current_command`, `pane_width`, `pane_height`, `session_attached`, `pane_current_path` (cwd for a pane with no registry entry), `pane_title` (last, so a tab in a title can't shift columns). A Claude pane's `pane_current_command` is its version (`^\d+\.\d+\.\d+$`). Join to the registry by `pane_id` (from the `tmux` field), falling back to `pane_pid == pid`, **only onto panes whose command is Claude's**: a suspended Claude (Ctrl+Z) or one out in `$EDITOR` leaves its entry pointing at a zsh/vim pane, which is then not joined (the session shows with `tmux: null`, not jumpable or replyable). When several entries claim one pane, the newest `startedAt` gets it; the others show without a pane. A Claude pane with no registry entry still appears (state from pane capture alone). Only Claude panes are captured. |
 | `tmux capture-pane -p -J -t %N` | Detects an open menu and parses its options (see Detection). |
 | `~/.claude/projects/*/<sessionId>.jsonl` | Transcript. Read only the **tail** (last ~512 KB, seek; drop the first line only when the window starts mid-line). When the newest line alone is longer than the window, double it (up to 8 MB); past that, keep the previous extract. Cache the resolved path per sessionId. |
@@ -85,6 +85,7 @@ interface Session {
     label: string;         // "/kanban-worker · every 5m"
     lastFiredAt: number | null;   // null until the first scheduled run
   } | null;
+  remoteSessionId: string | null;   // registry bridgeSessionId: connected to Remote Control
   lastActivityAt: number;
   statusUpdatedAt: number | null;
   startedAt: number | null;

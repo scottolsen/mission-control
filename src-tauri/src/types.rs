@@ -122,6 +122,8 @@ pub struct Session {
     pub current_tool: Option<CurrentTool>,
     #[serde(rename = "loop")]
     pub loop_info: Option<LoopInfo>,
+    /// The Remote Control session id while connected (registry `bridgeSessionId`).
+    pub remote_session_id: Option<String>,
     pub last_activity_at: i64,
     pub status_updated_at: Option<i64>,
     pub started_at: Option<i64>,

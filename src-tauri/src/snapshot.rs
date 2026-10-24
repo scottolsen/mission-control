@@ -171,6 +171,7 @@ fn build_session(inputs: &Inputs, j: Joined<'_>) -> Session {
         last_reply_at: extract.and_then(|e| e.last_reply_at),
         current_tool,
         loop_info: extract.and_then(|e| e.loop_info.clone()),
+        remote_session_id: reg.and_then(|r| r.bridge_session_id.clone()),
         last_activity_at: extract
             .and_then(|e| e.last_activity_at)
             .or(status_updated_at)
@@ -485,6 +486,7 @@ mod tests {
             started_at: Some(500),
             version: Some("2.1.296".into()),
             name: Some(format!("{sid}-name")),
+            bridge_session_id: None,
         }
     }
 

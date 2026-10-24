@@ -45,6 +45,8 @@ pub struct RegEntry {
     pub started_at: Option<i64>,
     pub version: Option<String>,
     pub name: Option<String>,
+    /// Set while the session is connected to Remote Control (`/rc`).
+    pub bridge_session_id: Option<String>,
 }
 
 /// Parse one registry file's JSON. `None` when it lacks a pid.
@@ -62,6 +64,7 @@ pub fn parse_entry(json: &str) -> Option<RegEntry> {
         started_at: n("startedAt"),
         version: s("version"),
         name: s("name").filter(|n| !n.trim().is_empty()),
+        bridge_session_id: s("bridgeSessionId").filter(|b| !b.trim().is_empty()),
     })
 }
 
@@ -155,6 +158,15 @@ mod tests {
                 pane_id: "%22".into()
             })
         );
+    }
+
+    #[test]
+    fn remote_control_bridge_id() {
+        let e = parse_entry(r#"{"pid":7,"cwd":"/x","bridgeSessionId":"session_01QiUZ"}"#).unwrap();
+        assert_eq!(e.bridge_session_id.as_deref(), Some("session_01QiUZ"));
+        let e = parse_entry(r#"{"pid":7,"cwd":"/x","bridgeSessionId":""}"#).unwrap();
+        assert_eq!(e.bridge_session_id, None);
+        assert_eq!(parse_entry(r#"{"pid":7}"#).unwrap().bridge_session_id, None);
     }
 
     #[test]

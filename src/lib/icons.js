@@ -12,6 +12,7 @@ export const ICONS = {
   reply: svg('<path d="M2.5 3.5h11v7.5H7l-3 2.5V11H2.5Z"/><path d="M5.5 7.25h5"/>'),
   spinner: svg('<circle cx="8" cy="8" r="5.75" opacity=".28"/><path d="M8 2.25a5.75 5.75 0 0 1 5.75 5.75"/>', ' class="spin"'),
   loop: svg('<path d="M12.5 5.25A5 5 0 0 0 3.4 6.1"/><path d="M12.75 2.5v2.75H10"/><path d="M3.5 10.75a5 5 0 0 0 9.1-.85"/><path d="M3.25 13.5v-2.75H6"/>'),
+  remote: svg('<rect x="4.75" y="1.75" width="6.5" height="12.5" rx="1.5"/><path d="M7.25 11.75h1.5"/>'),
   pause: svg('<circle cx="8" cy="8" r="5.75"/><path d="M6.4 6v4M9.6 6v4"/>'),
   moon: svg('<path d="M13.25 9.6A5.5 5.5 0 1 1 6.4 2.75a4.4 4.4 0 0 0 6.85 6.85Z"/>'),
   question: svg('<circle cx="8" cy="8" r="5.75"/><path d="M6.3 6.4a1.75 1.75 0 1 1 2.45 1.6c-.5.22-.75.6-.75 1.1v.15"/><circle cx="8" cy="11.4" r=".35" fill="currentColor"/>'),

@@ -203,7 +203,7 @@ function renderBanner() {
 
 const chipEls = new Map();
 function renderChips() {
-  const rows = sessions().map((s) => ({ display: displayState(s, now(), state.settings.staleHours), loop: s.loop }));
+  const rows = sessions().map((s) => ({ ...s, display: displayState(s, now(), state.settings.staleHours) }));
   const counts = chipCounts(rows);
   for (const chip of CHIPS) {
     let node = chipEls.get(chip.key);
@@ -228,6 +228,8 @@ function renderChips() {
       setAttr(node, "title", `${counts.idleOnly} idle · ${counts.stale} stale`);
     } else if (chip.key === "loop") {
       setAttr(node, "title", "Show sessions running a /loop");
+    } else if (chip.key === "remote") {
+      setAttr(node, "title", "Show sessions connected to Remote Control");
     } else {
       setAttr(node, "title", `Show ${chip.label.toLowerCase()} sessions`);
     }
@@ -327,7 +329,9 @@ function createRow(id) {
   const loc = make("span", "row-loc");
   const loop = make("span", "row-loop");
   loop.append(iconSpan("loop"), make("span", null, "loop"));
-  meta.append(loop, project, branch, loc);
+  const remote = make("span", "row-remote");
+  remote.append(iconSpan("remote"), make("span", null, "remote"));
+  meta.append(loop, remote, project, branch, loc);
   const snip = make("span", "row-snippet");
   snip.append(make("span", "s-kind"), make("span", "s-text"));
   row.append(icon, title, time, meta, snip);
@@ -342,6 +346,9 @@ function updateRow(row, s) {
   const loop = row.querySelector(".row-loop");
   loop.hidden = !s.loop;
   setAttr(loop, "title", s.loop ? `Looping: ${s.loop.label}` : null);
+  const remote = row.querySelector(".row-remote");
+  remote.hidden = !s.remoteSessionId;
+  setAttr(remote, "title", s.remoteSessionId ? "Connected to Remote Control" : null);
   setAttr(row, "aria-selected", String(s.id === state.selectedId));
   const meta = STATE_META[s.display];
   const icon = row.querySelector(".row-icon");
@@ -373,7 +380,7 @@ function updateRow(row, s) {
   kind.hidden = !SNIPPET_ICON[snip.kind];
   setText(row.querySelector(".s-text"), snip.text);
   setAttr(row.querySelector(".s-text"), "title", snip.text);
-  setAttr(row, "aria-label", `${title}, ${meta.label}${s.loop ? ", looping" : ""}, ${loc}`);
+  setAttr(row, "aria-label", `${title}, ${meta.label}${s.loop ? ", looping" : ""}${s.remoteSessionId ? ", remote control" : ""}, ${loc}`);
 }
 
 function revealSelected() {
@@ -415,6 +422,7 @@ function renderListEmpty(groups) {
       working: ["Nothing is working", "No session is running a turn right now."],
       idle: ["No inactive sessions", "Every session is working or waiting on you."],
       loop: ["No loops running", "Start one in any session with /loop, e.g. /loop 5m /babysit-prs."],
+      remote: ["No remote sessions", "Run /rc in a session to drive it from claude.ai or the Claude app."],
     }[state.chip] || ["No sessions", ""];
     const box = emptyState(el.listEmpty, "check", copy[0], copy[1]);
     const all = make("button", "btn", "Show all sessions");
@@ -525,11 +533,12 @@ function renderMeta(s) {
     { label: "Last activity", ts: s.lastActivityAt },
   ];
   if (s.loop) items.push({ label: "Loop", loop: s.loop });
+  if (s.remoteSessionId) items.push({ label: "Remote Control", value: `Connected · ${s.remoteSessionId}`, mono: true, full: true, title: "Bridge session id" });
   const key = JSON.stringify(items);
   if (el.dMeta.dataset.key === key) return;
   el.dMeta.dataset.key = key;
   el.dMeta.replaceChildren(...items.map((it) => {
-    const wrap = make("div", it.loop ? "full loop" : it.wide ? "wide" : "");
+    const wrap = make("div", it.loop ? "full loop" : it.full ? "full remote" : it.wide ? "wide" : "");
     const dd = make("dd", it.mono ? "mono" : "");
     if (it.loop) {
       const sub = make("span", "sub", it.loop.lastFiredAt == null ? " · no run yet" : " · last run ");

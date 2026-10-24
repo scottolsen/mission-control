@@ -36,8 +36,8 @@ export function displayState(session, now, staleHours) {
 
 /**
  * Top-bar filter chips. "Needs you" folds both attention states together.
- * "Looping" cuts across states: it matches sessions running a /loop, whatever
- * they're doing right now.
+ * "Looping" and "Remote" cut across states: they match on a session field (a
+ * running /loop, a Remote Control connection), whatever the session is doing.
  */
 export const CHIPS = [
   { key: "all", label: "All", states: null },
@@ -46,13 +46,14 @@ export const CHIPS = [
   // Not "Idle": it also covers the Stale group, and a chip reading "Idle 22"
   // over a list headed "Stale 22" reads as a contradiction.
   { key: "idle", label: "Inactive", states: ["idle", "stale", "unknown"] },
-  { key: "loop", label: "Looping", states: null, loop: true },
+  { key: "loop", label: "Looping", states: null, field: "loop" },
+  { key: "remote", label: "Remote", states: null, field: "remoteSessionId" },
 ];
 
 /** `row` is a session with its `display` state. */
 export function matchesChip(chipKey, row) {
   const chip = CHIPS.find((c) => c.key === chipKey);
-  if (chip?.loop) return Boolean(row.loop);
+  if (chip?.field) return Boolean(row[chip.field]);
   return !chip || !chip.states || chip.states.includes(row.display);
 }
 

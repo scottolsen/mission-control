@@ -37,10 +37,10 @@ test("staleHours of 0 or less disables staleness", () => {
   assert.equal(isStale(s("idle", 1000), NOW, 0), false);
 });
 
-const row = (display, loop = null) => ({ display, loop });
+const row = (display, loop = null, remoteSessionId = null) => ({ display, loop, remoteSessionId });
 
 test("chips: Needs you = needs_input + your_turn, Inactive = idle + stale + unknown", () => {
-  assert.deepEqual(CHIPS.map((c) => c.key), ["all", "attention", "working", "idle", "loop"]);
+  assert.deepEqual(CHIPS.map((c) => c.key), ["all", "attention", "working", "idle", "loop", "remote"]);
   assert.equal(matchesChip("attention", row("needs_input")), true);
   assert.equal(matchesChip("attention", row("your_turn")), true);
   assert.equal(matchesChip("attention", row("stale")), false);
@@ -59,6 +59,11 @@ test("the Looping chip matches a running loop in any state", () => {
   assert.equal(matchesChip("attention", row("your_turn", loop)), true);
 });
 
+test("the Remote chip matches sessions connected to Remote Control", () => {
+  assert.equal(matchesChip("remote", row("idle", null, "session_01ABC")), true);
+  assert.equal(matchesChip("remote", row("idle")), false);
+});
+
 test("the inactive chip isn't labelled Idle, so it can't contradict the Idle and Stale groups it covers", () => {
   const chip = CHIPS.find((c) => c.key === "idle");
   assert.equal(chip.label, "Inactive");
@@ -66,7 +71,7 @@ test("the inactive chip isn't labelled Idle, so it can't contradict the Idle and
 
 test("chipCounts tallies display states into each chip", () => {
   const loop = { label: "/babysit-prs", lastFiredAt: null };
-  const rows = [row("needs_input"), row("your_turn", loop), row("your_turn"), row("working", loop), row("idle"), row("stale")];
+  const rows = [row("needs_input"), row("your_turn", loop, "session_01"), row("your_turn"), row("working", loop), row("idle"), row("stale")];
   const counts = chipCounts(rows);
-  assert.deepEqual(counts, { all: 6, attention: 3, working: 1, idle: 2, loop: 2, needs_input: 1, your_turn: 2, idleOnly: 1, stale: 1 });
+  assert.deepEqual(counts, { all: 6, attention: 3, working: 1, idle: 2, loop: 2, remote: 1, needs_input: 1, your_turn: 2, idleOnly: 1, stale: 1 });
 });

@@ -52,6 +52,8 @@
   --loop-ink: #c59cff;
   --loop-wash: rgba(197, 156, 255, 0.09);
   --loop-line: rgba(197, 156, 255, 0.34);
+  --remote-ink: #6cb8ff;
+  --remote-line: rgba(108, 184, 255, 0.34);
 
   --ok: #6fd39a;
 
@@ -121,6 +123,8 @@
     --loop-ink: #7339c2;
     --loop-wash: rgba(115, 57, 194, 0.06);
     --loop-line: rgba(115, 57, 194, 0.3);
+    --remote-ink: #1f63b0;
+    --remote-line: rgba(31, 99, 176, 0.3);
 
     --ok: #157443;
 
@@ -290,6 +294,8 @@ code {
 .chip[data-chip="idle"] { --chip-c: var(--idle-ink); }
 .chip[data-chip="loop"] { --chip-c: var(--loop-ink); }
 .chip[data-chip="loop"]:not(.zero) .chip-count { color: var(--loop-ink); }
+.chip[data-chip="remote"] { --chip-c: var(--remote-ink); }
+.chip[data-chip="remote"]:not(.zero) .chip-count { color: var(--remote-ink); }
 .chip[data-chip="all"] .chip-dot { display: none; }
 .chip.zero .chip-dot { opacity: 0.4; }
 
@@ -531,7 +537,7 @@ code {
 /* A loop tints the row but leaves the rail to the state: a looping session
    that opens a menu must still read as needing you. */
 .row[data-loop]:not([data-state="needs_input"]) { --wash: var(--loop-wash); }
-.row-loop {
+.row-loop, .row-remote {
   display: inline-flex;
   align-items: center;
   gap: 3px;
@@ -544,8 +550,9 @@ code {
   line-height: 15px;
   color: var(--loop-ink);
 }
-.row-loop[hidden] { display: none; }
-.row-loop svg { width: 10px; height: 10px; }
+.row-remote { border-color: var(--remote-line); color: var(--remote-ink); }
+.row-loop[hidden], .row-remote[hidden] { display: none; }
+.row-loop svg, .row-remote svg { width: 10px; height: 10px; }
 
 .row-icon { grid-row: 1; grid-column: 1; display: flex; align-items: center; height: 19px; color: var(--c); }
 .row-icon svg { width: 15px; height: 15px; }

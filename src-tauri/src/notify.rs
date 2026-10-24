@@ -142,6 +142,7 @@ pub mod tests {
             last_reply_at: None,
             current_tool: None,
             loop_info: None,
+            remote_session_id: None,
             last_activity_at: 0,
             status_updated_at: None,
             started_at: None,
