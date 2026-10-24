@@ -22,6 +22,8 @@ Every child process (tmux, git, osascript) runs with a 3 s deadline and is kille
 - A **reply** is an `assistant` entry with a `text` block; join its text blocks.
 - **Current tool** = the latest `assistant` `tool_use` block whose `id` has no later `tool_result` (`tool_use_id`). Summary: `Bash` → `input.command`, `Read`/`Edit`/`Write` → `input.file_path` basename, `Grep`/`Glob` → `input.pattern`, `Agent`/`Task` → `input.description`, `WebFetch` → `input.url`, else empty.
 - **Truncated tail**: when the tail started mid-file, holds a reply and no human prompt, the prompt is older than the whole tail, so the reply counts as newer than it (`your_turn` when idle). Long tool-heavy turns push the prompt past 512 KB routinely.
+- **Scheduled turns**: a `user` entry with `turnOrigin: "scheduled"`, a `scheduledTaskId` or a `wakeupSource` was started by a `/loop` interval or wakeup, not the human. It is never a human prompt (even as plain text) and closes tool_results as usual.
+- **Loop**: walking the tail in order, a recurring `CronCreate` tool_use (`recurring` not `false`) or a `ScheduleWakeup` without `stop: true` starts a loop (`lastFiredAt: null`); a scheduled turn (not `isMeta`: the expanded skill body is a meta companion) sets `lastFiredAt` to its timestamp; a `CronDelete` or `ScheduleWakeup {stop: true}` clears it. `label` is the CronCreate `prompt` plus its interval (`*/5 * * * *` → `every 5m`, `0 * * * *` → `hourly`, `0 */2 * * *` → `every 2h`, else `cron <expr>`); when the CronCreate has scrolled out of the tail, the scheduled turn's own prompt (`<command-name>` + `<command-args>`, or its text), ≤ 80 chars. A one-shot reminder's fire looks the same as a loop's and counts as one.
 - `lastActivityAt` = newest `timestamp` among user/assistant entries, else `statusUpdatedAt`.
 - Fixture: `src-tauri/tests/fixtures/transcript.jsonl`.
 
@@ -79,6 +81,10 @@ interface Session {
   lastReply: string | null;    // assistant text, ≤ 600 chars
   lastReplyAt: number | null;
   currentTool: { name: string; summary: string } | null;   // only meaningful when working
+  loop: {                  // a /loop (recurring scheduled prompt) still running, from the transcript
+    label: string;         // "/kanban-worker · every 5m"
+    lastFiredAt: number | null;   // null until the first scheduled run
+  } | null;
   lastActivityAt: number;
   statusUpdatedAt: number | null;
   startedAt: number | null;

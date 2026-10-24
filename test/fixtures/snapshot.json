@@ -48,6 +48,7 @@
         "name": "Bash",
         "summary": "bundle exec rails generate migration AddRefundedCentsToLineItems"
       },
+      "loop": null,
       "lastActivityAt": 1792166280000,
       "statusUpdatedAt": 1792166280000,
       "startedAt": 1792155600000,
@@ -100,6 +101,7 @@
       "lastReply": "There are two conventions already in use across orders-api and shopfront.",
       "lastReplyAt": 1792166040000,
       "currentTool": null,
+      "loop": null,
       "lastActivityAt": 1792166040000,
       "statusUpdatedAt": 1792166040000,
       "startedAt": 1792072800000,
@@ -131,6 +133,7 @@
       "lastReply": "Found it. `NextNumber` reads the sequence row without a lock, so two transactions can both read 41022 before either writes.\n\nFix: wrap the read/increment in `with_lock` (SELECT … FOR UPDATE). I added a regression spec that spins two threads against the same prefix; it fails on main and passes with the lock.\n\nWant me to open a PR?",
       "lastReplyAt": 1792166160000,
       "currentTool": null,
+      "loop": null,
       "lastActivityAt": 1792166160000,
       "statusUpdatedAt": 1792166160000,
       "startedAt": 1792159200000,
@@ -162,6 +165,7 @@
       "lastReply": "It doesn't pick per mailer — `deliver_later` enqueues `ActionMailer::MailDeliveryJob`, which runs on the `mailers` queue from config/sidekiq.yml. The mailer class is serialised by name and re-instantiated in the job.",
       "lastReplyAt": 1792163280000,
       "currentTool": null,
+      "loop": null,
       "lastActivityAt": 1792163280000,
       "statusUpdatedAt": 1792163280000,
       "startedAt": 1792148400000,
@@ -193,6 +197,7 @@
       "lastReply": "Added `alias pr='gh pr view --web'` to zsh/aliases.zsh.",
       "lastReplyAt": 1792159200000,
       "currentTool": null,
+      "loop": null,
       "lastActivityAt": 1792159200000,
       "statusUpdatedAt": 1792159200000,
       "startedAt": 1792116000000,
@@ -227,6 +232,7 @@
         "name": "Bash",
         "summary": "bundle exec parallel_rspec spec/models spec/services/refunds"
       },
+      "loop": null,
       "lastActivityAt": 1792166380000,
       "statusUpdatedAt": 1792165980000,
       "startedAt": 1792164000000,
@@ -261,6 +267,7 @@
         "name": "Edit",
         "summary": "tier_table.rb"
       },
+      "loop": null,
       "lastActivityAt": 1792166355000,
       "statusUpdatedAt": 1792164960000,
       "startedAt": 1792162800000,
@@ -294,6 +301,10 @@
       "currentTool": {
         "name": "Agent",
         "summary": "Audit deprecated config for Rails 8"
+      },
+      "loop": {
+        "label": "/babysit-prs · every 10m",
+        "lastFiredAt": 1792166305000
       },
       "lastActivityAt": 1792166310000,
       "statusUpdatedAt": 1792162800000,
@@ -329,6 +340,7 @@
         "name": "Grep",
         "summary": "ActiveSupport::(Deprecation|ProxyObject)"
       },
+      "loop": null,
       "lastActivityAt": 1792166370000,
       "statusUpdatedAt": 1792166100000,
       "startedAt": 1792155600000,
@@ -360,6 +372,7 @@
       "lastReply": null,
       "lastReplyAt": null,
       "currentTool": null,
+      "loop": null,
       "lastActivityAt": 1792165680000,
       "statusUpdatedAt": 1792165680000,
       "startedAt": 1792165680000,
@@ -391,6 +404,7 @@
       "lastReply": null,
       "lastReplyAt": null,
       "currentTool": null,
+      "loop": null,
       "lastActivityAt": 1792164120000,
       "statusUpdatedAt": 1792164120000,
       "startedAt": 1792159200000,
@@ -422,6 +436,10 @@
       "lastReply": "Bulk is ~38% cheaper at our volume, but adds up to 6 hours of latency. Summary table is in tmp/geocode_compare.md.",
       "lastReplyAt": 1792072800000,
       "currentTool": null,
+      "loop": {
+        "label": "/geocode-compare · hourly",
+        "lastFiredAt": 1792072791000
+      },
       "lastActivityAt": 1792072800000,
       "statusUpdatedAt": 1792072800000,
       "startedAt": 1792058400000,
@@ -453,6 +471,7 @@
       "lastReply": null,
       "lastReplyAt": null,
       "currentTool": null,
+      "loop": null,
       "lastActivityAt": 1791820800000,
       "statusUpdatedAt": 1791820800000,
       "startedAt": 1791820800000,
@@ -475,6 +494,7 @@
       "lastReply": "Reduced the header gap to 6px and aligned the breadcrumb baseline with the title.",
       "lastReplyAt": 1792165440000,
       "currentTool": null,
+      "loop": null,
       "lastActivityAt": 1792165440000,
       "statusUpdatedAt": 1792165440000,
       "startedAt": 1792163400000,

@@ -37,15 +37,26 @@ test("staleHours of 0 or less disables staleness", () => {
   assert.equal(isStale(s("idle", 1000), NOW, 0), false);
 });
 
+const row = (display, loop = null) => ({ display, loop });
+
 test("chips: Needs you = needs_input + your_turn, Inactive = idle + stale + unknown", () => {
-  assert.deepEqual(CHIPS.map((c) => c.key), ["all", "attention", "working", "idle"]);
-  assert.equal(matchesChip("attention", "needs_input"), true);
-  assert.equal(matchesChip("attention", "your_turn"), true);
-  assert.equal(matchesChip("attention", "stale"), false);
-  assert.equal(matchesChip("idle", "stale"), true);
-  assert.equal(matchesChip("idle", "unknown"), true);
-  assert.equal(matchesChip("working", "working"), true);
-  assert.equal(matchesChip("all", "unknown"), true);
+  assert.deepEqual(CHIPS.map((c) => c.key), ["all", "attention", "working", "idle", "loop"]);
+  assert.equal(matchesChip("attention", row("needs_input")), true);
+  assert.equal(matchesChip("attention", row("your_turn")), true);
+  assert.equal(matchesChip("attention", row("stale")), false);
+  assert.equal(matchesChip("idle", row("stale")), true);
+  assert.equal(matchesChip("idle", row("unknown")), true);
+  assert.equal(matchesChip("working", row("working")), true);
+  assert.equal(matchesChip("all", row("unknown")), true);
+});
+
+test("the Looping chip matches a running loop in any state", () => {
+  const loop = { label: "/kanban-worker · every 5m", lastFiredAt: NOW };
+  assert.equal(matchesChip("loop", row("your_turn", loop)), true);
+  assert.equal(matchesChip("loop", row("working", loop)), true);
+  assert.equal(matchesChip("loop", row("working")), false);
+  // A looping session still counts toward its state's chip.
+  assert.equal(matchesChip("attention", row("your_turn", loop)), true);
 });
 
 test("the inactive chip isn't labelled Idle, so it can't contradict the Idle and Stale groups it covers", () => {
@@ -54,6 +65,8 @@ test("the inactive chip isn't labelled Idle, so it can't contradict the Idle and
 });
 
 test("chipCounts tallies display states into each chip", () => {
-  const counts = chipCounts(["needs_input", "your_turn", "your_turn", "working", "idle", "stale"]);
-  assert.deepEqual(counts, { all: 6, attention: 3, working: 1, idle: 2, needs_input: 1, your_turn: 2, idleOnly: 1, stale: 1 });
+  const loop = { label: "/babysit-prs", lastFiredAt: null };
+  const rows = [row("needs_input"), row("your_turn", loop), row("your_turn"), row("working", loop), row("idle"), row("stale")];
+  const counts = chipCounts(rows);
+  assert.deepEqual(counts, { all: 6, attention: 3, working: 1, idle: 2, loop: 2, needs_input: 1, your_turn: 2, idleOnly: 1, stale: 1 });
 });

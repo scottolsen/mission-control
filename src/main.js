@@ -168,7 +168,7 @@ function visibleGroups() {
   const opts = { mode: state.mode, now: now(), staleHours: state.settings.staleHours };
   const searched = filterSessions(sessions(), state.query);
   return groupSessions(searched, opts)
-    .map((g) => ({ ...g, sessions: g.sessions.filter((s) => matchesChip(state.chip, s.display)) }))
+    .map((g) => ({ ...g, sessions: g.sessions.filter((s) => matchesChip(state.chip, s)) }))
     .filter((g) => g.sessions.length);
 }
 
@@ -203,8 +203,8 @@ function renderBanner() {
 
 const chipEls = new Map();
 function renderChips() {
-  const displays = sessions().map((s) => displayState(s, now(), state.settings.staleHours));
-  const counts = chipCounts(displays);
+  const rows = sessions().map((s) => ({ display: displayState(s, now(), state.settings.staleHours), loop: s.loop }));
+  const counts = chipCounts(rows);
   for (const chip of CHIPS) {
     let node = chipEls.get(chip.key);
     if (!node) {
@@ -226,6 +226,8 @@ function renderChips() {
       setAttr(node, "title", `${counts.needs_input} need input · ${counts.your_turn} your turn`);
     } else if (chip.key === "idle") {
       setAttr(node, "title", `${counts.idleOnly} idle · ${counts.stale} stale`);
+    } else if (chip.key === "loop") {
+      setAttr(node, "title", "Show sessions running a /loop");
     } else {
       setAttr(node, "title", `Show ${chip.label.toLowerCase()} sessions`);
     }
@@ -323,7 +325,9 @@ function createRow(id) {
   const branch = make("span", "row-branch");
   branch.append(iconSpan("branch"), make("span"));
   const loc = make("span", "row-loc");
-  meta.append(project, branch, loc);
+  const loop = make("span", "row-loop");
+  loop.append(iconSpan("loop"), make("span", null, "loop"));
+  meta.append(loop, project, branch, loc);
   const snip = make("span", "row-snippet");
   snip.append(make("span", "s-kind"), make("span", "s-text"));
   row.append(icon, title, time, meta, snip);
@@ -334,6 +338,10 @@ const SNIPPET_ICON = { tool: "tool", question: "alert", reply: "spark", prompt: 
 
 function updateRow(row, s) {
   setAttr(row, "data-state", s.display);
+  setAttr(row, "data-loop", s.loop ? "" : null);
+  const loop = row.querySelector(".row-loop");
+  loop.hidden = !s.loop;
+  setAttr(loop, "title", s.loop ? `Looping: ${s.loop.label}` : null);
   setAttr(row, "aria-selected", String(s.id === state.selectedId));
   const meta = STATE_META[s.display];
   const icon = row.querySelector(".row-icon");
@@ -365,7 +373,7 @@ function updateRow(row, s) {
   kind.hidden = !SNIPPET_ICON[snip.kind];
   setText(row.querySelector(".s-text"), snip.text);
   setAttr(row.querySelector(".s-text"), "title", snip.text);
-  setAttr(row, "aria-label", `${title}, ${meta.label}, ${loc}`);
+  setAttr(row, "aria-label", `${title}, ${meta.label}${s.loop ? ", looping" : ""}, ${loc}`);
 }
 
 function revealSelected() {
@@ -406,6 +414,7 @@ function renderListEmpty(groups) {
       attention: ["Nothing needs you", "No session is waiting on a reply or a menu choice."],
       working: ["Nothing is working", "No session is running a turn right now."],
       idle: ["No inactive sessions", "Every session is working or waiting on you."],
+      loop: ["No loops running", "Start one in any session with /loop, e.g. /loop 5m /babysit-prs."],
     }[state.chip] || ["No sessions", ""];
     const box = emptyState(el.listEmpty, "check", copy[0], copy[1]);
     const all = make("button", "btn", "Show all sessions");
@@ -515,13 +524,23 @@ function renderMeta(s) {
     { label: "Started", ts: s.startedAt },
     { label: "Last activity", ts: s.lastActivityAt },
   ];
+  if (s.loop) items.push({ label: "Loop", loop: s.loop });
   const key = JSON.stringify(items);
   if (el.dMeta.dataset.key === key) return;
   el.dMeta.dataset.key = key;
   el.dMeta.replaceChildren(...items.map((it) => {
-    const wrap = make("div", it.wide ? "wide" : "");
+    const wrap = make("div", it.loop ? "full loop" : it.wide ? "wide" : "");
     const dd = make("dd", it.mono ? "mono" : "");
-    if (it.ts !== undefined) {
+    if (it.loop) {
+      const sub = make("span", "sub", it.loop.lastFiredAt == null ? " · no run yet" : " · last run ");
+      if (it.loop.lastFiredAt != null) {
+        const time = make("time");
+        stampTime(time, it.loop.lastFiredAt, { withClock: true });
+        sub.append(time);
+      }
+      dd.append(make("span", "mono", it.loop.label), sub);
+      dd.title = it.loop.label;
+    } else if (it.ts !== undefined) {
       const time = make("time");
       if (it.ts == null) { dd.classList.add("none"); dd.textContent = "—"; } else { stampTime(time, it.ts, { withClock: true }); dd.append(time); }
     } else if (it.value) {

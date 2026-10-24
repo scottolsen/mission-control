@@ -43,7 +43,7 @@ if (typeof window !== "undefined") {
         for (const k of Object.keys(o)) if (/At$/.test(k) && typeof o[k] === "number") o[k] += shift;
       };
       bump(snap);
-      snap.sessions.forEach(bump);
+      snap.sessions.forEach((s) => { bump(s); if (s.loop) bump(s.loop); });
       if (scenario === "empty") snap.sessions = [];
       if (scenario === "notmux") { snap.sessions = []; snap.tmuxRunning = false; }
       if (scenario === "error") snap.error = "tmux list-panes failed: server exited unexpectedly. Showing the last good snapshot.";

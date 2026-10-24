@@ -6,7 +6,7 @@
 //! parsed result is cached against the file's (length, mtime) so an
 //! unchanged transcript costs one `stat` per poll.
 
-use crate::types::CurrentTool;
+use crate::types::{CurrentTool, LoopInfo};
 use regex::Regex;
 use serde_json::Value;
 use std::collections::HashMap;
@@ -22,6 +22,7 @@ pub const TAIL_BYTES: u64 = 512 * 1024;
 pub const TAIL_CAP: u64 = 8 * 1024 * 1024;
 const PROMPT_MAX: usize = 400;
 const REPLY_MAX: usize = 600;
+const LOOP_LABEL_MAX: usize = 80;
 
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Extract {
@@ -32,6 +33,8 @@ pub struct Extract {
     pub current_tool: Option<CurrentTool>,
     pub last_activity_at: Option<i64>,
     pub ai_title: Option<String>,
+    /// The loop this session is running, if the tail shows one still going.
+    pub loop_info: Option<LoopInfo>,
     /// True when a human prompt was found in the tail, or must precede it
     /// (see `infer_prompt_before_tail`).
     pub has_prompt: bool,
@@ -79,6 +82,8 @@ pub fn extract(text: &str) -> Extract {
     // with the matching tool_use_id appears.
     let mut open: Vec<(String, CurrentTool)> = Vec::new();
     let mut fallback_prompt: Option<String> = None;
+    // The newest recurring CronCreate's label: a fire only names its prompt.
+    let mut cron_label: Option<String> = None;
 
     for line in text.lines() {
         let Ok(entry) = serde_json::from_str::<Value>(line) else {
@@ -87,11 +92,16 @@ pub fn extract(text: &str) -> Extract {
         match entry.get("type").and_then(Value::as_str) {
             Some("user") => {
                 bump_activity(&mut out, &entry);
-                on_user(&mut out, &mut open, &entry);
+                if is_scheduled(&entry) {
+                    on_fire(&mut out, &mut open, &entry, cron_label.as_deref());
+                } else {
+                    on_user(&mut out, &mut open, &entry);
+                }
             }
             Some("assistant") => {
                 bump_activity(&mut out, &entry);
                 on_assistant(&mut out, &mut open, &entry);
+                on_loop_tools(&mut out, &mut cron_label, &entry);
             }
             Some("ai-title") => {
                 if let Some(t) = entry.get("aiTitle").and_then(Value::as_str) {
@@ -135,15 +145,7 @@ fn timestamp(entry: &Value) -> Option<i64> {
 
 fn on_user(out: &mut Extract, open: &mut Vec<(String, CurrentTool)>, entry: &Value) {
     let content = &entry["message"]["content"];
-    if let Some(blocks) = content.as_array() {
-        for b in blocks {
-            if b.get("type").and_then(Value::as_str) == Some("tool_result") {
-                if let Some(id) = b.get("tool_use_id").and_then(Value::as_str) {
-                    open.retain(|(open_id, _)| open_id != id);
-                }
-            }
-        }
-    }
+    close_tools(open, content);
     // Meta entries and the compaction summary ("This session is being
     // continued…") are written as `user` but aren't the human.
     let flag = |k: &str| entry.get(k).and_then(Value::as_bool) == Some(true);
@@ -156,6 +158,153 @@ fn on_user(out: &mut Extract, open: &mut Vec<(String, CurrentTool)>, entry: &Val
     out.has_prompt = true;
     out.last_prompt = Some(collapse(&text, PROMPT_MAX));
     out.last_prompt_at = timestamp(entry);
+}
+
+fn close_tools(open: &mut Vec<(String, CurrentTool)>, content: &Value) {
+    if let Some(blocks) = content.as_array() {
+        for b in blocks {
+            if b.get("type").and_then(Value::as_str) == Some("tool_result") {
+                if let Some(id) = b.get("tool_use_id").and_then(Value::as_str) {
+                    open.retain(|(open_id, _)| open_id != id);
+                }
+            }
+        }
+    }
+}
+
+// A turn Claude Code started on a schedule (a `/loop` interval or wakeup)
+// rather than from the human.
+fn is_scheduled(entry: &Value) -> bool {
+    entry.get("turnOrigin").and_then(Value::as_str) == Some("scheduled")
+        || entry.get("scheduledTaskId").is_some()
+        || entry.get("wakeupSource").is_some()
+}
+
+// A scheduled run: the loop is alive as of now. Never a human prompt, even
+// when the scheduled prompt is plain text.
+fn on_fire(
+    out: &mut Extract,
+    open: &mut Vec<(String, CurrentTool)>,
+    entry: &Value,
+    cron_label: Option<&str>,
+) {
+    let content = &entry["message"]["content"];
+    close_tools(open, content);
+    // The expanded skill body rides along as a meta entry with the same tags.
+    if entry.get("isMeta").and_then(Value::as_bool) == Some(true) {
+        return;
+    }
+    let label = cron_label
+        .map(str::to_string)
+        .or_else(|| fired_prompt(content))
+        .or_else(|| out.loop_info.as_ref().map(|l| l.label.clone()))
+        .unwrap_or_else(|| "Scheduled prompt".to_string());
+    out.loop_info = Some(LoopInfo {
+        label,
+        last_fired_at: timestamp(entry),
+    });
+}
+
+// What a scheduled turn runs: `/kanban-worker` for a slash command (the
+// `<command-name>` wrapper plus any args), else the prompt text itself.
+fn fired_prompt(content: &Value) -> Option<String> {
+    let text = match content {
+        Value::String(s) => s.clone(),
+        Value::Array(blocks) => blocks
+            .iter()
+            .filter_map(|b| b.get("text").and_then(Value::as_str))
+            .collect::<Vec<_>>()
+            .join("\n"),
+        _ => return None,
+    };
+    let tag = |name: &str| {
+        let open = format!("<{name}>");
+        let start = text.find(&open)? + open.len();
+        let end = text[start..].find(&format!("</{name}>"))? + start;
+        Some(text[start..end].trim().to_string())
+    };
+    let prompt = match tag("command-name") {
+        Some(cmd) => match tag("command-args").filter(|a| !a.is_empty()) {
+            Some(args) => format!("{cmd} {args}"),
+            None => cmd,
+        },
+        None if !is_wrapper(&text) => text,
+        None => return None,
+    };
+    let prompt = collapse(&prompt, LOOP_LABEL_MAX);
+    (!prompt.is_empty()).then_some(prompt)
+}
+
+// The tools `/loop` drives: a recurring CronCreate (or a ScheduleWakeup)
+// starts a loop, CronDelete or `ScheduleWakeup {stop: true}` ends it.
+fn on_loop_tools(out: &mut Extract, cron_label: &mut Option<String>, entry: &Value) {
+    let Some(blocks) = entry["message"]["content"].as_array() else {
+        return;
+    };
+    for b in blocks {
+        if b.get("type").and_then(Value::as_str) != Some("tool_use") {
+            continue;
+        }
+        let input = &b["input"];
+        let prompt = || {
+            input
+                .get("prompt")
+                .and_then(Value::as_str)
+                .map(|p| collapse(p, LOOP_LABEL_MAX))
+                .filter(|p| !p.is_empty())
+        };
+        match b.get("name").and_then(Value::as_str) {
+            Some("CronCreate")
+                if input.get("recurring").and_then(Value::as_bool) != Some(false) =>
+            {
+                let label = prompt().unwrap_or_else(|| "Scheduled prompt".to_string());
+                let label = match input.get("cron").and_then(Value::as_str) {
+                    Some(cron) => format!("{label} · {}", cron_text(cron)),
+                    None => label,
+                };
+                *cron_label = Some(label.clone());
+                out.loop_info = Some(LoopInfo {
+                    label,
+                    last_fired_at: None,
+                });
+            }
+            Some("CronDelete") => {
+                *cron_label = None;
+                out.loop_info = None;
+            }
+            Some("ScheduleWakeup") if input.get("stop").and_then(Value::as_bool) == Some(true) => {
+                out.loop_info = None;
+            }
+            Some("ScheduleWakeup") => {
+                let last_fired_at = out.loop_info.as_ref().and_then(|l| l.last_fired_at);
+                let label = out
+                    .loop_info
+                    .as_ref()
+                    .map(|l| l.label.clone())
+                    .or_else(prompt)
+                    .unwrap_or_else(|| "Self-paced loop".to_string());
+                out.loop_info = Some(LoopInfo {
+                    label,
+                    last_fired_at,
+                });
+            }
+            _ => {}
+        }
+    }
+}
+
+// "*/5 * * * *" → "every 5m", "0 * * * *" → "hourly"; anything else as written.
+fn cron_text(cron: &str) -> String {
+    let f: Vec<&str> = cron.split_whitespace().collect();
+    match f.as_slice() {
+        ["*", "*", "*", "*", "*"] => "every minute".to_string(),
+        [m, "*", "*", "*", "*"] if m.starts_with("*/") => format!("every {}m", &m[2..]),
+        [m, h, "*", "*", "*"] if h.starts_with("*/") && m.parse::<u32>().is_ok() => {
+            format!("every {}h", &h[2..])
+        }
+        [m, "*", "*", "*", "*"] if m.parse::<u32>().is_ok() => "hourly".to_string(),
+        _ => format!("cron {cron}"),
+    }
 }
 
 // A human prompt is string content, or text blocks with no tool_result.
@@ -644,6 +793,81 @@ mod tests {
         let mut nothing = Extract::default();
         infer_prompt_before_tail(&mut nothing, true);
         assert!(!nothing.has_prompt);
+    }
+
+    #[test]
+    fn scheduled_runs_mark_a_loop() {
+        // What `/loop 5m /kanban-worker` leaves behind: the CronCreate, then
+        // fires tagged turnOrigin "scheduled" with a meta skill body.
+        let jsonl = r#"{"type":"user","timestamp":"2026-01-01T00:00:00Z","message":{"content":"<command-message>loop</command-message>\n<command-name>/loop</command-name>\n<command-args>5m /kanban-worker</command-args>"}}
+{"type":"assistant","timestamp":"2026-01-01T00:00:01Z","message":{"content":[{"type":"tool_use","id":"c1","name":"CronCreate","input":{"cron":"*/5 * * * *","prompt":"/kanban-worker","recurring":true}}]}}
+{"type":"user","timestamp":"2026-01-01T00:00:02Z","message":{"content":[{"type":"tool_result","tool_use_id":"c1","content":"Scheduled recurring job e6801d8f"}]}}
+{"type":"assistant","timestamp":"2026-01-01T00:00:03Z","message":{"content":[{"type":"text","text":"Loop started."}]}}"#;
+        let ex = extract(jsonl);
+        assert_eq!(
+            ex.loop_info,
+            Some(LoopInfo {
+                label: "/kanban-worker · every 5m".into(),
+                last_fired_at: None
+            })
+        );
+
+        let fire = r#"{"type":"user","timestamp":"2026-01-01T00:05:00Z","turnOrigin":"scheduled","scheduledTaskId":"e6801d8f","wakeupSource":"schedule_wakeup","message":{"content":"<command-message>kanban-worker</command-message>\n<command-name>/kanban-worker</command-name>"}}
+{"type":"user","timestamp":"2026-01-01T00:05:00Z","isMeta":true,"wakeupSource":"schedule_wakeup","message":{"content":[{"type":"text","text":"Base directory for this skill: /x"}]}}
+{"type":"assistant","timestamp":"2026-01-01T00:05:09Z","message":{"content":[{"type":"text","text":"Nothing new."}]}}"#;
+        let ex = extract(&format!("{jsonl}\n{fire}"));
+        let l = ex.loop_info.unwrap();
+        assert_eq!(l.label, "/kanban-worker · every 5m");
+        assert_eq!(l.last_fired_at, parse_iso_ms("2026-01-01T00:05:00Z"));
+        assert_eq!(ex.last_reply.as_deref(), Some("Nothing new."));
+
+        // CronCreate scrolled out of the tail: the fire alone names it.
+        let ex = extract(fire);
+        assert_eq!(ex.loop_info.unwrap().label, "/kanban-worker");
+        assert!(!ex.has_prompt);
+    }
+
+    #[test]
+    fn plain_text_fires_are_not_human_prompts() {
+        let jsonl = r#"{"type":"user","timestamp":"2026-01-01T00:00:00Z","message":{"content":"real prompt"}}
+{"type":"user","timestamp":"2026-01-01T00:05:00Z","turnOrigin":"scheduled","message":{"content":"check   the deploy"}}"#;
+        let ex = extract(jsonl);
+        assert_eq!(ex.last_prompt.as_deref(), Some("real prompt"));
+        assert_eq!(ex.loop_info.unwrap().label, "check the deploy");
+    }
+
+    #[test]
+    fn deleting_or_stopping_ends_the_loop() {
+        let fire = r#"{"type":"user","timestamp":"2026-01-01T00:05:00Z","turnOrigin":"scheduled","message":{"content":"<command-name>/babysit</command-name>"}}"#;
+        let delete = r#"{"type":"assistant","timestamp":"2026-01-01T00:06:00Z","message":{"content":[{"type":"tool_use","id":"d1","name":"CronDelete","input":{"id":"e6801d8f"}}]}}"#;
+        let stop = r#"{"type":"assistant","timestamp":"2026-01-01T00:06:00Z","message":{"content":[{"type":"tool_use","id":"w1","name":"ScheduleWakeup","input":{"stop":true}}]}}"#;
+        assert!(extract(fire).loop_info.is_some());
+        assert_eq!(extract(&format!("{fire}\n{delete}")).loop_info, None);
+        assert_eq!(extract(&format!("{fire}\n{stop}")).loop_info, None);
+        // A one-shot reminder isn't a loop.
+        let once = r#"{"type":"assistant","timestamp":"2026-01-01T00:00:00Z","message":{"content":[{"type":"tool_use","id":"c1","name":"CronCreate","input":{"cron":"30 14 * * *","prompt":"ping","recurring":false}}]}}"#;
+        assert_eq!(extract(once).loop_info, None);
+    }
+
+    #[test]
+    fn self_paced_loops_start_at_their_first_wakeup() {
+        let wake = r#"{"type":"assistant","timestamp":"2026-01-01T00:00:00Z","message":{"content":[{"type":"tool_use","id":"w1","name":"ScheduleWakeup","input":{"delaySeconds":1200,"prompt":"/babysit-prs","reason":"watching CI"}}]}}"#;
+        assert_eq!(
+            extract(wake).loop_info,
+            Some(LoopInfo {
+                label: "/babysit-prs".into(),
+                last_fired_at: None
+            })
+        );
+    }
+
+    #[test]
+    fn cron_intervals_read_as_words() {
+        assert_eq!(cron_text("*/5 * * * *"), "every 5m");
+        assert_eq!(cron_text("* * * * *"), "every minute");
+        assert_eq!(cron_text("0 */2 * * *"), "every 2h");
+        assert_eq!(cron_text("7 * * * *"), "hourly");
+        assert_eq!(cron_text("0 9 * * 1-5"), "cron 0 9 * * 1-5");
     }
 
     #[test]

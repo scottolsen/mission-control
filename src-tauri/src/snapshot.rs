@@ -170,6 +170,7 @@ fn build_session(inputs: &Inputs, j: Joined<'_>) -> Session {
         last_reply: extract.and_then(|e| e.last_reply.clone()),
         last_reply_at: extract.and_then(|e| e.last_reply_at),
         current_tool,
+        loop_info: extract.and_then(|e| e.loop_info.clone()),
         last_activity_at: extract
             .and_then(|e| e.last_activity_at)
             .or(status_updated_at)

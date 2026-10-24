@@ -34,7 +34,11 @@ export function displayState(session, now, staleHours) {
   return isStale(session, now, staleHours) ? "stale" : session.state;
 }
 
-/** Top-bar filter chips. "Needs you" folds both attention states together. */
+/**
+ * Top-bar filter chips. "Needs you" folds both attention states together.
+ * "Looping" cuts across states: it matches sessions running a /loop, whatever
+ * they're doing right now.
+ */
 export const CHIPS = [
   { key: "all", label: "All", states: null },
   { key: "attention", label: "Needs you", states: ["needs_input", "your_turn"] },
@@ -42,22 +46,26 @@ export const CHIPS = [
   // Not "Idle": it also covers the Stale group, and a chip reading "Idle 22"
   // over a list headed "Stale 22" reads as a contradiction.
   { key: "idle", label: "Inactive", states: ["idle", "stale", "unknown"] },
+  { key: "loop", label: "Looping", states: null, loop: true },
 ];
 
-export function matchesChip(chipKey, display) {
+/** `row` is a session with its `display` state. */
+export function matchesChip(chipKey, row) {
   const chip = CHIPS.find((c) => c.key === chipKey);
-  return !chip || !chip.states || chip.states.includes(display);
+  if (chip?.loop) return Boolean(row.loop);
+  return !chip || !chip.states || chip.states.includes(row.display);
 }
 
 /**
  * Counts per chip, plus the states inside the two folded chips separately:
  * the attention split drives the badge dot, idle/stale the Inactive tooltip.
  */
-export function chipCounts(displays) {
+export function chipCounts(rows) {
   const counts = { needs_input: 0, your_turn: 0, idleOnly: 0, stale: 0 };
   for (const c of CHIPS) counts[c.key] = 0;
-  for (const d of displays) {
-    for (const c of CHIPS) if (matchesChip(c.key, d)) counts[c.key] += 1;
+  for (const row of rows) {
+    const d = row.display;
+    for (const c of CHIPS) if (matchesChip(c.key, row)) counts[c.key] += 1;
     if (d === "needs_input" || d === "your_turn" || d === "stale") counts[d] += 1;
     if (d === "idle") counts.idleOnly += 1;
   }

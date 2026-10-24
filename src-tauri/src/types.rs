@@ -92,6 +92,16 @@ pub struct CurrentTool {
     pub summary: String,
 }
 
+/// A `/loop` (or any recurring scheduled prompt) running in a session.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LoopInfo {
+    /// What it runs, plus the interval when known: `/kanban-worker · every 5m`.
+    pub label: String,
+    /// When the last scheduled run started; `None` until the first one fires.
+    pub last_fired_at: Option<i64>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Session {
@@ -110,6 +120,8 @@ pub struct Session {
     pub last_reply: Option<String>,
     pub last_reply_at: Option<i64>,
     pub current_tool: Option<CurrentTool>,
+    #[serde(rename = "loop")]
+    pub loop_info: Option<LoopInfo>,
     pub last_activity_at: i64,
     pub status_updated_at: Option<i64>,
     pub started_at: Option<i64>,

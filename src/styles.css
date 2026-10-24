@@ -49,6 +49,9 @@
   --stale-ink: #7f8899;
   --stale-wash: rgba(127, 136, 153, 0.08);
   --stale-line: rgba(127, 136, 153, 0.22);
+  --loop-ink: #c59cff;
+  --loop-wash: rgba(197, 156, 255, 0.09);
+  --loop-line: rgba(197, 156, 255, 0.34);
 
   --ok: #6fd39a;
 
@@ -115,6 +118,9 @@
     --stale-ink: #5f6878;
     --stale-wash: rgba(107, 116, 132, 0.06);
     --stale-line: rgba(107, 116, 132, 0.2);
+    --loop-ink: #7339c2;
+    --loop-wash: rgba(115, 57, 194, 0.06);
+    --loop-line: rgba(115, 57, 194, 0.3);
 
     --ok: #157443;
 
@@ -282,6 +288,8 @@ code {
 .chip[data-chip="attention"]:not(.zero) .chip-count { color: var(--needs-ink); }
 .chip[data-chip="working"] { --chip-c: var(--work-ink); }
 .chip[data-chip="idle"] { --chip-c: var(--idle-ink); }
+.chip[data-chip="loop"] { --chip-c: var(--loop-ink); }
+.chip[data-chip="loop"]:not(.zero) .chip-count { color: var(--loop-ink); }
 .chip[data-chip="all"] .chip-dot { display: none; }
 .chip.zero .chip-dot { opacity: 0.4; }
 
@@ -520,6 +528,24 @@ code {
 .row[data-state="idle"] { --c: var(--idle-ink); }
 .row[data-state="stale"], .row[data-state="unknown"] { --c: var(--stale-ink); }
 .row[data-state="idle"]::before, .row[data-state="stale"]::before, .row[data-state="unknown"]::before { opacity: 0.45; }
+/* A loop tints the row but leaves the rail to the state: a looping session
+   that opens a menu must still read as needing you. */
+.row[data-loop]:not([data-state="needs_input"]) { --wash: var(--loop-wash); }
+.row-loop {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  flex: none;
+  padding: 0 5px;
+  border: 1px solid var(--loop-line);
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 15px;
+  color: var(--loop-ink);
+}
+.row-loop[hidden] { display: none; }
+.row-loop svg { width: 10px; height: 10px; }
 
 .row-icon { grid-row: 1; grid-column: 1; display: flex; align-items: center; height: 19px; color: var(--c); }
 .row-icon svg { width: 15px; height: 15px; }
@@ -809,6 +835,8 @@ body.no-sessions #split, body.no-sessions #detail { display: none; }
 .meta dd .sub { color: var(--muted); }
 .meta dd.none { color: var(--faint); }
 .meta .wide { grid-column: span 2; }
+.meta .full { grid-column: 1 / -1; }
+.meta .loop .mono { font-family: var(--mono); font-size: 12px; color: var(--loop-ink); }
 
 /* --------------------------------------------------------------- action */
 

@@ -141,6 +141,7 @@ pub mod tests {
             last_reply: None,
             last_reply_at: None,
             current_tool: None,
+            loop_info: None,
             last_activity_at: 0,
             status_updated_at: None,
             started_at: None,
