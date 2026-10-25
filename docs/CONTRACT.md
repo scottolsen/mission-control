@@ -98,6 +98,7 @@ interface Snapshot {
   generatedAt: number;     // 0 = the monitor hasn't polled yet: the UI shows loading, not "tmux isn't running"
   tmuxRunning: boolean;
   error: string | null;    // human-readable; the UI shows it in a banner
+  claudeVersion: string | null;   // installed Claude Code: the version ~/.local/bin/claude links to, else the newest in ~/.local/share/claude/versions/; null for other installs
 }
 
 interface Settings {

@@ -519,5 +519,6 @@
   ],
   "generatedAt": 1792166400000,
   "tmuxRunning": true,
-  "error": null
+  "error": null,
+  "claudeVersion": "2.1.301"
 }

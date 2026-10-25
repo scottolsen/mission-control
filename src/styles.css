@@ -241,6 +241,15 @@ code {
   color: var(--muted);
 }
 .wordmark b { margin-left: 0.5em; color: var(--ink); font-weight: 600; }
+.cc-version {
+  padding: 1px 6px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--muted);
+}
+.cc-version[hidden] { display: none; }
 
 .topbar-spacer { flex: 1; align-self: stretch; }
 
@@ -610,6 +619,15 @@ code {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+.row-version {
+  flex: none;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--faint);
+}
+.row-version[hidden] { display: none; }
+.row-version.old { color: var(--turn-ink); }
 
 .row-snippet {
   grid-row: 3;

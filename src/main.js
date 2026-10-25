@@ -17,7 +17,7 @@ import { keyAction } from "./lib/keys.js";
 import { moveSelection, keepSelection, autoMoved } from "./lib/selection.js";
 import { DEFAULT_SETTINGS, readSettingsForm } from "./lib/settings.js";
 import { replyMode, isStateChanged, isWindowHidden, errorText, promptFingerprint } from "./lib/reply.js";
-import { isLoaded } from "./lib/snapshot.js";
+import { isLoaded, isOutdated } from "./lib/snapshot.js";
 import { previewScale, trimCapture, paintSequence } from "./lib/preview.js";
 import { ICONS } from "./lib/icons.js";
 
@@ -26,6 +26,7 @@ const { listen } = window.__TAURI__.event;
 
 const $ = (id) => document.getElementById(id);
 const el = {
+  ccVersion: $("cc-version"),
   chips: $("chips"),
   search: $("search"),
   groupStatus: $("group-status"),
@@ -180,6 +181,7 @@ function selected() {
 
 function render({ reveal = false } = {}) {
   renderBanner();
+  renderVersion();
   renderChips();
   const groups = visibleGroups();
   const ids = flattenGroups(groups);
@@ -193,6 +195,13 @@ function render({ reveal = false } = {}) {
   renderDetail(selected());
   renderSync();
   if (reveal) revealSelected();
+}
+
+function renderVersion() {
+  const v = state.snapshot?.claudeVersion;
+  el.ccVersion.hidden = !v;
+  setText(el.ccVersion, v ? `Claude Code ${v}` : "");
+  setAttr(el.ccVersion, "title", v ? "Installed Claude Code: new sessions start on this version" : null);
 }
 
 function renderBanner() {
@@ -327,11 +336,12 @@ function createRow(id) {
   const branch = make("span", "row-branch");
   branch.append(iconSpan("branch"), make("span"));
   const loc = make("span", "row-loc");
+  const version = make("span", "row-version");
   const loop = make("span", "row-loop");
   loop.append(iconSpan("loop"), make("span", null, "loop"));
   const remote = make("span", "row-remote");
   remote.append(iconSpan("remote"), make("span", null, "remote"));
-  meta.append(loop, remote, project, branch, loc);
+  meta.append(loop, remote, project, branch, loc, version);
   const snip = make("span", "row-snippet");
   snip.append(make("span", "s-kind"), make("span", "s-text"));
   row.append(icon, title, time, meta, snip);
@@ -372,6 +382,15 @@ function updateRow(row, s) {
   const shortLoc = state.mode === "tmux" && s.tmux ? loc.slice(s.tmux.session.length + 3) : loc;
   setText(row.querySelector(".row-loc"), shortLoc);
   setAttr(row.querySelector(".row-loc"), "title", loc);
+  const version = row.querySelector(".row-version");
+  const installed = state.snapshot?.claudeVersion;
+  const old = isOutdated(s.version, installed);
+  version.hidden = !s.version;
+  setText(version, s.version || "");
+  version.classList.toggle("old", old);
+  setAttr(version, "title", !s.version ? null
+    : old ? `Claude Code ${s.version}, older than the installed ${installed}: restart the session to update`
+      : `Claude Code ${s.version}`);
 
   const snip = snippet(s, s.display);
   setAttr(row, "data-snippet", snip.kind);
@@ -523,12 +542,17 @@ function renderCrumbs(s) {
   el.dCrumbs.replaceChildren(...items);
 }
 
+function versionText(v) {
+  const installed = state.snapshot?.claudeVersion;
+  return isOutdated(v, installed) ? `${v} · ${installed} installed` : v;
+}
+
 function renderMeta(s) {
   const items = [
     { label: "Directory", value: homeRelative(s.cwd), title: s.cwd, mono: true, wide: true },
     { label: "Branch", value: s.branch, mono: true, none: "No branch", wide: true },
     { label: "PID", value: s.pid != null ? String(s.pid) : null, mono: true, none: "—" },
-    { label: "Version", value: s.version, mono: true, none: "—" },
+    { label: "Version", value: versionText(s.version), mono: true, none: "—" },
     { label: "Started", ts: s.startedAt },
     { label: "Last activity", ts: s.lastActivityAt },
   ];

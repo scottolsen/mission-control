@@ -123,6 +123,32 @@ pub fn is_live_claude(pid: i64) -> bool {
     pid_alive(pid) && process_name(pid).is_none_or(|n| crate::tmux::is_claude_command(&n))
 }
 
+/// `2.1.296` → (2, 1, 296), so versions compare numerically.
+pub fn version_key(v: &str) -> Option<(u32, u32, u32)> {
+    let mut it = v.split('.').map(str::parse::<u32>);
+    let k = (it.next()?.ok()?, it.next()?.ok()?, it.next()?.ok()?);
+    it.next().is_none().then_some(k)
+}
+
+/// The Claude Code a new session would start: the version the native
+/// installer's `~/.local/bin/claude` symlink points at, else the newest
+/// binary under `~/.local/share/claude/versions/`. None for other installs.
+pub fn installed_version(home: &Path) -> Option<String> {
+    let linked = std::fs::read_link(home.join(".local/bin/claude"))
+        .ok()
+        .and_then(|t| t.file_name()?.to_str().map(str::to_string))
+        .filter(|n| version_key(n).is_some());
+    linked.or_else(|| {
+        std::fs::read_dir(home.join(".local/share/claude/versions"))
+            .ok()?
+            .flatten()
+            .filter_map(|e| e.file_name().into_string().ok())
+            .filter_map(|n| Some((version_key(&n)?, n)))
+            .max()
+            .map(|(_, n)| n)
+    })
+}
+
 /// Every registry entry in `dir` whose pid passes `live`. Missing dir → empty.
 pub fn load(dir: &Path, live: fn(i64) -> bool) -> Vec<RegEntry> {
     let Ok(read) = std::fs::read_dir(dir) else {
@@ -246,5 +272,32 @@ mod tests {
         assert_eq!(entries[0].cwd, "/a");
         std::fs::remove_dir_all(&dir).unwrap();
         assert!(load(&dir, pid_alive).is_empty());
+    }
+
+    #[test]
+    fn versions_compare_numerically() {
+        assert!(version_key("2.1.310") > version_key("2.1.99"));
+        assert_eq!(version_key("2.1"), None);
+        assert_eq!(version_key("2.1.3.4"), None);
+        assert_eq!(version_key("claude"), None);
+    }
+
+    #[test]
+    fn installed_version_prefers_the_symlink() {
+        let home = std::env::temp_dir().join(format!("mc-ver-{}", std::process::id()));
+        let versions = home.join(".local/share/claude/versions");
+        std::fs::create_dir_all(&versions).unwrap();
+        std::fs::create_dir_all(home.join(".local/bin")).unwrap();
+        assert_eq!(installed_version(&home), None);
+        for v in ["2.1.99", "2.1.310", "2.1.305", "notes"] {
+            std::fs::write(versions.join(v), "").unwrap();
+        }
+        assert_eq!(installed_version(&home).as_deref(), Some("2.1.310"));
+        // The installer points the symlink at the version it chose, which
+        // wins over a newer download it hasn't switched to.
+        std::os::unix::fs::symlink(versions.join("2.1.305"), home.join(".local/bin/claude"))
+            .unwrap();
+        assert_eq!(installed_version(&home).as_deref(), Some("2.1.305"));
+        std::fs::remove_dir_all(&home).unwrap();
     }
 }

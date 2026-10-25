@@ -107,6 +107,7 @@ pub fn assemble(inputs: &Inputs, now: i64) -> Snapshot {
         generated_at: now,
         tmux_running: inputs.panes.is_some(),
         error: None,
+        claude_version: None,
     }
 }
 
@@ -357,6 +358,8 @@ pub struct Poller {
     pub runner: Arc<dyn Runner>,
     pub sessions_dir: PathBuf,
     pub projects_dir: PathBuf,
+    /// Where `installed_version` looks for the Claude Code install.
+    pub home: PathBuf,
     /// Which registry pids count as live sessions (tests accept any live pid).
     pub live_pid: fn(i64) -> bool,
     transcripts: TranscriptCache,
@@ -370,6 +373,7 @@ impl Poller {
             runner,
             sessions_dir: home.join(".claude/sessions"),
             projects_dir: home.join(".claude/projects"),
+            home,
             live_pid: registry::is_live_claude,
             transcripts: TranscriptCache::default(),
             branches: BranchCache::default(),
@@ -417,6 +421,7 @@ impl Poller {
         };
         let mut snap = assemble(&inputs, now);
         snap.error = error;
+        snap.claude_version = registry::installed_version(&self.home);
         snap
     }
 

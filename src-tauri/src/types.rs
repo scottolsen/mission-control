@@ -138,6 +138,8 @@ pub struct Snapshot {
     pub generated_at: i64,
     pub tmux_running: bool,
     pub error: Option<String>,
+    /// The installed Claude Code (what a new session would run).
+    pub claude_version: Option<String>,
 }
 
 impl Snapshot {
@@ -147,6 +149,7 @@ impl Snapshot {
         self.sessions == other.sessions
             && self.tmux_running == other.tmux_running
             && self.error == other.error
+            && self.claude_version == other.claude_version
     }
 }
 
