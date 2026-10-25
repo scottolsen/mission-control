@@ -627,6 +627,8 @@ code {
   color: var(--faint);
 }
 .row-version[hidden] { display: none; }
+.row-loc[hidden] { display: none; }
+.row-loc[hidden] + .row-version { margin-left: auto; }
 .row-version.old { color: var(--turn-ink); }
 
 .row-snippet {

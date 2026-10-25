@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { snippet, tmuxLabel, tmuxCrumbs, toolLabel, homeRelative, windowText, inlineCode } from "../../src/lib/session-text.js";
+import { snippet, tmuxLabel, rowLocation, tmuxCrumbs, toolLabel, homeRelative, windowText, inlineCode } from "../../src/lib/session-text.js";
 
 const tmux = { session: "shopfront", windowId: "@3", windowIndex: 3, windowName: "zsh", paneId: "%40", paneIndex: 1, width: 182, height: 31 };
 
@@ -87,4 +87,13 @@ test("inlineCode does not span a code run across lines", () => {
 test("snippet strips inline-code backticks from the one-line text", () => {
   const r = snippet({ state: "your_turn", lastReply: "Found it. `NextNumber` reads" }, "your_turn");
   assert.equal(r.text, "Found it. NextNumber reads");
+});
+
+test("rowLocation shows only a tmux session the row doesn't already name", () => {
+  const t = { ...tmux, session: "mission-control", windowIndex: 1, windowName: "loop session filter tmux", paneId: "%39" };
+  const s = { project: "mission-control", title: "loop session filter tmux", tmux: t };
+  assert.equal(rowLocation(s), "");
+  assert.equal(rowLocation({ ...s, project: "invoice-pdf" }), "mission-control");
+  assert.equal(rowLocation({ ...s, project: "invoice-pdf" }, { groupedByTmux: true }), "");
+  assert.equal(rowLocation({ ...s, tmux: null }), "Outside tmux");
 });

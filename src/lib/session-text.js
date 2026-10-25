@@ -17,6 +17,19 @@ export function tmuxLabel(tmux) {
   return `${tmux.session} › ${windowText(tmux)} › ${tmux.paneId}`;
 }
 
+/**
+ * The tmux location as a list row shows it: only the tmux session, and only
+ * when it isn't named after the project (or the list is grouped by tmux
+ * session, whose header names it). Window and pane live in the detail
+ * crumbs. "" means the row shows nothing.
+ */
+export function rowLocation(s, { groupedByTmux = false } = {}) {
+  const t = s.tmux;
+  if (!t) return "Outside tmux";
+  const same = Boolean(s.project) && t.session.trim().toLowerCase() === s.project.trim().toLowerCase();
+  return groupedByTmux || same ? "" : t.session;
+}
+
 export function tmuxCrumbs(tmux) {
   if (!tmux) return [];
   return [

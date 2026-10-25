@@ -12,7 +12,7 @@ import { relativeTime, absoluteTime, clockTime } from "./lib/time.js";
 import { STATE_META, CHIPS, chipCounts, matchesChip, displayState } from "./lib/states.js";
 import { filterSessions } from "./lib/filter.js";
 import { groupSessions, flattenGroups } from "./lib/grouping.js";
-import { snippet, tmuxLabel, tmuxCrumbs, homeRelative, inlineCode } from "./lib/session-text.js";
+import { snippet, tmuxLabel, rowLocation, tmuxCrumbs, homeRelative, inlineCode } from "./lib/session-text.js";
 import { keyAction } from "./lib/keys.js";
 import { moveSelection, keepSelection, autoMoved } from "./lib/selection.js";
 import { DEFAULT_SETTINGS, readSettingsForm } from "./lib/settings.js";
@@ -378,9 +378,9 @@ function updateRow(row, s) {
   setText(branch.lastChild, s.branch || "");
   setAttr(branch, "title", s.branch);
   const loc = tmuxLabel(s.tmux);
-  // Grouped by tmux session, the header already names it.
-  const shortLoc = state.mode === "tmux" && s.tmux ? loc.slice(s.tmux.session.length + 3) : loc;
-  setText(row.querySelector(".row-loc"), shortLoc);
+  const rowLoc = rowLocation(s, { groupedByTmux: state.mode === "tmux" });
+  row.querySelector(".row-loc").hidden = !rowLoc;
+  setText(row.querySelector(".row-loc"), rowLoc);
   setAttr(row.querySelector(".row-loc"), "title", loc);
   const version = row.querySelector(".row-version");
   const installed = state.snapshot?.claudeVersion;
